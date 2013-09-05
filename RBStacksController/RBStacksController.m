@@ -11,6 +11,8 @@
 
 @interface RBStacksController () <UIGestureRecognizerDelegate>
 
+@property (strong, nonatomic) NSMutableDictionary * gutters;
+
 @end
 
 @implementation RBStacksController
@@ -19,6 +21,7 @@
 {
 	self = [super init];
 
+	self.gutters = [NSMutableDictionary dictionary];
 	[self addChildViewController:rootViewController];
 	rootViewController.view.frame = self.view.bounds;
 	[self.view addSubview:rootViewController.view];
@@ -30,11 +33,13 @@
 
 - (void)pushViewController:(UIViewController *)viewController animated:(BOOL)animated withGestures:(BOOL)gestures
 {
-	// TODO: put all views below this one into correct position (i.e. full screen, not revealed)
 	UIViewController *oldViewController = nil;
 	if (self.childViewControllers.count > 0) {
 		oldViewController = [self.childViewControllers lastObject];
 	}
+
+	// Remove all gutters so all objects between this one and the root are put back on screen
+	[self.gutters removeAllObjects];
 	
 	UIViewController *newViewController = viewController;
 
@@ -85,6 +90,7 @@
 
 		[viewController.view removeFromSuperview];
 		[viewController removeFromParentViewController];
+		[self.gutters removeObjectForKey:[viewController description]];
 		completionBlock(finished);
 
 	}];
@@ -108,25 +114,40 @@
 	[self popViewController:viewController completion:^(BOOL finished){}];
 }
 
-- (void)reveal:(UIViewController *)viewController
+- (void)reveal:(UIViewController *)viewController withGutter:(CGFloat)gutter
 {
-	// TODO: Add gutter width as a variable somehow - non global
+	CGFloat displayGutter = 0.0;
+	[self.gutters setObject:@( gutter ) forKey:[viewController description]];
+	
 	for (int i = self.childViewControllers.count - 1; i > 0; i--)
 	{
 		UIViewController * vc = [self.childViewControllers objectAtIndex:i];
+		CGFloat vcGutter = [[self.gutters objectForKey:[vc description]] floatValue];
+
+		if (vcGutter == 0)
+		{
+			CGRect newFrame = CGRectMake(0, vc.view.frame.origin.y, vc.view.frame.size.width, vc.view.frame.size.height);
+
+			vc.view.frame = newFrame;
+		}
 
 		if (vc == viewController || vc.view.frame.origin.x > 0)
 		{
-			CGFloat displayGutter = 20.0 * (self.childViewControllers.count - i);
+			displayGutter += vcGutter;
 
-			CGRect newFrame = CGRectMake(self.view.bounds.size.width - displayGutter, viewController.view.frame.origin.y, viewController.view.frame.size.width, viewController.view.frame.size.height);
+			CGRect newFrame = CGRectMake(self.view.bounds.size.width - displayGutter, vc.view.frame.origin.y, vc.view.frame.size.width, vc.view.frame.size.height);
 
 			CGFloat duration = 0.0f;
 			if (vc == viewController) duration = 0.35f;
 
-			[UIView animateWithDuration:duration animations:^{ viewController.view.frame = newFrame; } completion:^(BOOL finished) {}];
+			[UIView animateWithDuration:duration animations:^{ vc.view.frame = newFrame; } completion:^(BOOL finished) {}];
 		}
 	}
+}
+
+- (void)reveal:(UIViewController *)viewController
+{
+	[self reveal:viewController withGutter:20];
 }
 
 - (void)unReveal:(UIViewController *)viewController completion:(void(^)(BOOL finished))completionBlock
