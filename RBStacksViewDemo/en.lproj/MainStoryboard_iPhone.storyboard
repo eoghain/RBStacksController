@@ -74,7 +74,7 @@
                                     <color key="titleColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                                 </state>
                                 <connections>
-                                    <segue destination="ec4-3X-GFt" kind="custom" customClass="RBStacksRevealSegue" id="Hy3-ch-ZEw"/>
+                                    <segue destination="ec4-3X-GFt" kind="custom" identifier="40" customClass="RBStacksRevealGutterSegue" id="GCV-H5-GE9"/>
                                 </connections>
                             </button>
                         </subviews>

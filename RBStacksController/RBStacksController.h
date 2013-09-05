@@ -39,6 +39,10 @@
 
 @end
 
+@interface RBStacksRevealGutterSegue : UIStoryboardSegue
+
+@end
+
 @interface RBStacksUnRevealSegue : UIStoryboardSegue
 
 @end

@@ -274,6 +274,21 @@
 
 @end
 
+@implementation RBStacksRevealGutterSegue
+
+- (void)perform
+{
+	UIViewController *src = (UIViewController *) self.sourceViewController;
+	CGFloat gutter = [self.identifier floatValue] ?: 20.0f;
+
+	NSLog(@"gutter:%f", gutter);
+
+	RBStacksController * stack = (RBStacksController *)src.parentViewController;
+	[stack reveal:src withGutter:gutter];
+}
+
+@end
+
 @implementation RBStacksUnRevealSegue
 
 - (void)perform
