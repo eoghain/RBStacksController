@@ -21,12 +21,24 @@
 {
 	self = [super init];
 
+	[self setRootViewController:rootViewController];
+
+	return self;
+}
+
+- (void)setRootViewController:(UIViewController *)rootViewController
+{
 	self.gutters = [NSMutableDictionary dictionary];
+
+	for (UIViewController *vc in self.childViewControllers)
+	{
+		[vc willMoveToParentViewController:nil];
+		[vc removeFromParentViewController];
+	}
+
 	[self addChildViewController:rootViewController];
 	rootViewController.view.frame = self.view.bounds;
 	[self.view addSubview:rootViewController.view];
-
-	return self;
 }
 
 #pragma mark - Implementation
@@ -114,8 +126,26 @@
 	[self popViewController:viewController completion:^(BOOL finished){}];
 }
 
+- (UIViewController *)childViewControllerForViewController:(UIViewController *)vc
+{
+	// This viewController is a child of the Stack
+	if ([self.childViewControllers indexOfObject:vc] != NSNotFound)
+		return vc;
+
+	// This viewContoller is contained by a child of the stack
+
+	while (![vc.parentViewController isKindOfClass:[RBStacksController class]])
+	{
+		vc = vc.parentViewController;
+	}
+
+	return vc;
+}
+
 - (void)reveal:(UIViewController *)viewController withGutter:(CGFloat)gutter
 {
+	viewController = [self childViewControllerForViewController:viewController];
+
 	CGFloat displayGutter = 0.0;
 	[self.gutters setObject:@( gutter ) forKey:[viewController description]];
 	
@@ -237,15 +267,50 @@
 
 #pragma mark - Segues
 
+@implementation RBStacksSegue
+
+- (RBStacksController *)stacksController
+{
+	UIViewController * src = (UIViewController *) self.sourceViewController;
+	UIViewController * vc = src.parentViewController;
+
+	while (![vc isKindOfClass:[RBStacksController class]])
+	{
+		if (vc.parentViewController != nil)
+		{
+			vc = vc.parentViewController;
+		}
+		else
+		{
+			return nil;
+		}
+	}
+
+	return (RBStacksController *)vc;
+}
+
+@end
+
 @implementation RBStacksPushSegue
 
 - (void)perform
 {
-	UIViewController *src = (UIViewController *) self.sourceViewController;
-	UIViewController *dst = (UIViewController *) self.destinationViewController;
+	UIViewController * dst = (UIViewController *) self.destinationViewController;
 
-	RBStacksController * stack = (RBStacksController *)src.parentViewController;
+	RBStacksController * stack = self.stacksController;
 	[stack pushViewController:dst animated:YES];
+}
+
+@end
+
+@implementation RBStacksPushWithoutGesturesSegue
+
+- (void)perform
+{
+	UIViewController * dst = (UIViewController *) self.destinationViewController;
+
+	RBStacksController * stack = self.stacksController;
+	[stack pushViewController:dst animated:YES withGestures:NO];
 }
 
 @end
@@ -254,10 +319,21 @@
 
 - (void)perform
 {
-	UIViewController *src = (UIViewController *) self.sourceViewController;
-
-	RBStacksController * stack = (RBStacksController *)src.parentViewController;
+	RBStacksController * stack = self.stacksController;
 	[stack popViewController];
+}
+
+@end
+
+@implementation RBStacksReplaceLastSegue
+
+- (void)perform
+{
+	UIViewController * dst = (UIViewController *) self.destinationViewController;
+
+	RBStacksController * stack = self.stacksController;
+	[stack popViewController];
+	[stack pushViewController:dst animated:YES];
 }
 
 @end
@@ -266,9 +342,9 @@
 
 - (void)perform
 {
-	UIViewController *src = (UIViewController *) self.sourceViewController;
+	UIViewController * src = (UIViewController *) self.sourceViewController;
 
-	RBStacksController * stack = (RBStacksController *)src.parentViewController;
+	RBStacksController * stack = self.stacksController;
 	[stack reveal:src];
 }
 
@@ -278,12 +354,10 @@
 
 - (void)perform
 {
-	UIViewController *src = (UIViewController *) self.sourceViewController;
+	UIViewController * src = (UIViewController *) self.sourceViewController;
 	CGFloat gutter = [self.identifier floatValue] ?: 20.0f;
 
-	NSLog(@"gutter:%f", gutter);
-
-	RBStacksController * stack = (RBStacksController *)src.parentViewController;
+	RBStacksController * stack = self.stacksController;
 	[stack reveal:src withGutter:gutter];
 }
 
@@ -293,9 +367,9 @@
 
 - (void)perform
 {
-	UIViewController *src = (UIViewController *) self.sourceViewController;
+	UIViewController * src = (UIViewController *) self.sourceViewController;
 
-	RBStacksController * stack = (RBStacksController *)src.parentViewController;
+	RBStacksController * stack = self.stacksController;
 	[stack unReveal:src];
 }
 
@@ -305,9 +379,9 @@
 
 - (void)perform
 {
-	UIViewController *src = (UIViewController *) self.sourceViewController;
+	UIViewController * src = (UIViewController *) self.sourceViewController;
 
-	RBStacksController * stack = (RBStacksController *)src.parentViewController;
+	RBStacksController * stack = self.stacksController;
 	[stack popViewController:src];
 }
 

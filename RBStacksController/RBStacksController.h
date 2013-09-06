@@ -12,6 +12,8 @@
 
 - (id)initWithRootViewController:(UIViewController *)rootViewController;
 
+- (void)setRootViewController:(UIViewController *)rootViewController;
+
 - (void)pushViewController:(UIViewController *)viewController animated:(BOOL)animated withGestures:(BOOL)gestures;
 - (void)pushViewController:(UIViewController *)viewController animated:(BOOL)animated;
 - (UIViewController *)popViewController;
@@ -19,6 +21,7 @@
 - (void)popViewController:(UIViewController *)viewController;
 
 - (void)reveal:(UIViewController *)viewController;
+- (void)reveal:(UIViewController *)viewController withGutter:(CGFloat)gutter;
 - (void)unReveal:(UIViewController *)viewController completion:(void(^)(BOOL finished))completionBlock;
 - (void)unReveal:(UIViewController *)viewController;
 
@@ -27,26 +30,38 @@
 
 #pragma mark - Segues
 
-@interface RBStacksPushSegue : UIStoryboardSegue
+@interface RBStacksSegue : UIStoryboardSegue
 
 @end
 
-@interface RBStacksPopSegue : UIStoryboardSegue
+@interface RBStacksPushSegue : RBStacksSegue
 
 @end
 
-@interface RBStacksRevealSegue : UIStoryboardSegue
+@interface RBStacksPushWithoutGesturesSegue : RBStacksSegue
 
 @end
 
-@interface RBStacksRevealGutterSegue : UIStoryboardSegue
+@interface RBStacksReplaceLastSegue : RBStacksSegue
 
 @end
 
-@interface RBStacksUnRevealSegue : UIStoryboardSegue
+@interface RBStacksPopSegue : RBStacksSegue
 
 @end
 
-@interface RBStacksRemoveSegue : UIStoryboardSegue
+@interface RBStacksRevealSegue : RBStacksSegue
+
+@end
+
+@interface RBStacksRevealGutterSegue : RBStacksSegue
+
+@end
+
+@interface RBStacksUnRevealSegue : RBStacksSegue
+
+@end
+
+@interface RBStacksRemoveSegue : RBStacksSegue
 
 @end
