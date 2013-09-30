@@ -41,6 +41,44 @@
 	[self.view addSubview:rootViewController.view];
 }
 
+#pragma mark - View Handling
+
+- (void)setFrameForView:(UIView *)view withGutter:(NSInteger)gutter
+{
+	view.frame = CGRectMake(self.view.bounds.size.width - view.frame.size.width + gutter,
+							self.view.bounds.origin.y,
+							view.frame.size.width,
+							self.view.bounds.size.height);
+}
+
+- (void)layoutChildViewsWithAnimatedViewController:(UIViewController *)viewController
+{
+	CGFloat displayGutter = 0.0;
+	for (int i = self.childViewControllers.count - 1; i > 0; i--)
+	{
+		UIViewController * vc = [self.childViewControllers objectAtIndex:i];
+		CGFloat vcGutter = [[self.gutters objectForKey:[vc description]] floatValue];
+
+		if (vcGutter == 0)
+		{
+			[self setFrameForView:vc.view withGutter:0];
+			continue;
+		}
+
+		if (vc == viewController || vc.view.frame.origin.x > 0)
+		{
+			displayGutter += vcGutter;
+
+			CGFloat duration = 0.0f;
+			if (vc == viewController) duration = 0.35f;
+
+			[UIView animateWithDuration:duration animations:^{
+				[self setFrameForView:vc.view withGutter:vc.view.frame.size.width - displayGutter];
+			} completion:^(BOOL finished) {}];
+		}
+	}
+}
+
 #pragma mark - Implementation
 
 - (void)pushViewController:(UIViewController *)viewController animated:(BOOL)animated withGestures:(BOOL)gestures
@@ -53,35 +91,42 @@
 	// Remove all gutters so all objects between this one and the root are put back on screen
 	[self.gutters removeAllObjects];
 	
-	UIViewController *newViewController = viewController;
+	UIView *newView = viewController.view;
 
-	newViewController.view.frame = CGRectMake(self.view.bounds.size.width,
-											  self.view.bounds.origin.y,
-											  self.view.bounds.size.width,
-											  self.view.bounds.size.height);
+	// Resize for views from nibs with frames rotated from current view orientation
+	if (newView.frame.size.height == self.view.bounds.size.width && newView.frame.size.width == self.view.bounds.size.height)
+	{
+		CGRect frame = newView.frame;
+		frame.size = self.view.bounds.size;
+		newView.frame = frame;
+	}
+
+	[self setFrameForView:newView withGutter:self.view.bounds.size.width]; // start off screen to right
+	
+	newView.autoresizingMask = UIViewAutoresizingFlexibleHeight;
+
+	if (newView.frame.size.width == self.view.bounds.size.width)
+	{
+		newView.autoresizingMask = newView.autoresizingMask | UIViewAutoresizingFlexibleWidth;
+	}
 
 	if (gestures)
 	{
 		UIPanGestureRecognizer * pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
 		pan.delegate = self;
-		[newViewController.view addGestureRecognizer:pan];
+		[newView addGestureRecognizer:pan];
 	}
 
-	[self addChildViewController:newViewController];
+	[viewController willMoveToParentViewController:self];
+	[self addChildViewController:viewController];
+	[self.view addSubview:newView];
 
-	[newViewController willMoveToParentViewController:self];
-	[self.view addSubview:newViewController.view];
-
-	[self addShadow:newViewController.view];
+	[self addShadow:newView];
 
 	[UIView animateWithDuration:(!animated || !oldViewController) ? 0 : 0.35f animations:^{
-
-		newViewController.view.frame = self.view.bounds;
-
+		newView.frame = self.view.bounds;
 	} completion:^(BOOL finished) {
-
-		[newViewController didMoveToParentViewController:self];
-		
+		[viewController didMoveToParentViewController:self];
 	}];
 }
 
@@ -92,6 +137,7 @@
 
 - (void)popViewController:(UIViewController *)viewController completion:(void(^)(BOOL finished))completionBlock
 {
+	[self.gutters removeObjectForKey:[viewController description]];
 	[viewController willMoveToParentViewController:nil];
 
 	[UIView animateWithDuration:0.35f animations:^{
@@ -145,34 +191,8 @@
 - (void)reveal:(UIViewController *)viewController withGutter:(CGFloat)gutter
 {
 	viewController = [self childViewControllerForViewController:viewController];
-
-	CGFloat displayGutter = 0.0;
 	[self.gutters setObject:@( gutter ) forKey:[viewController description]];
-	
-	for (int i = self.childViewControllers.count - 1; i > 0; i--)
-	{
-		UIViewController * vc = [self.childViewControllers objectAtIndex:i];
-		CGFloat vcGutter = [[self.gutters objectForKey:[vc description]] floatValue];
-
-		if (vcGutter == 0)
-		{
-			CGRect newFrame = CGRectMake(0, vc.view.frame.origin.y, vc.view.frame.size.width, vc.view.frame.size.height);
-
-			vc.view.frame = newFrame;
-		}
-
-		if (vc == viewController || vc.view.frame.origin.x > 0)
-		{
-			displayGutter += vcGutter;
-
-			CGRect newFrame = CGRectMake(self.view.bounds.size.width - displayGutter, vc.view.frame.origin.y, vc.view.frame.size.width, vc.view.frame.size.height);
-
-			CGFloat duration = 0.0f;
-			if (vc == viewController) duration = 0.35f;
-
-			[UIView animateWithDuration:duration animations:^{ vc.view.frame = newFrame; } completion:^(BOOL finished) {}];
-		}
-	}
+	[self layoutChildViewsWithAnimatedViewController:viewController];
 }
 
 - (void)reveal:(UIViewController *)viewController
@@ -182,14 +202,12 @@
 
 - (void)unReveal:(UIViewController *)viewController completion:(void(^)(BOOL finished))completionBlock
 {
+	[self.gutters removeObjectForKey:[viewController description]];
+	
 	[UIView animateWithDuration:0.35f animations:^{
-
 		viewController.view.frame = self.view.bounds;
-
 	} completion:^(BOOL finished) {
-
 		completionBlock(finished);
-
 	}];
 }
 
@@ -217,19 +235,25 @@
 {
 	CGPoint translation = [recognizer translationInView:recognizer.view];
 
-	float newCenterX = recognizer.view.center.x + translation.x;
 	UIView * superView = recognizer.view.superview;
+	CGFloat xVelocity = [recognizer velocityInView:recognizer.view].x;
 
-	if (abs([recognizer velocityInView:recognizer.view].x) > 1000.0)
+	if (abs(xVelocity) > 1000.0)
 	{
 		[self handleSwipe:recognizer];
 		return;
 	}
 
-	if (newCenterX < superView.center.x) newCenterX = superView.center.x;
+	float newCenterX = recognizer.view.center.x + translation.x;
+
+	if ((xVelocity < 0) && recognizer.view.frame.origin.x + translation.x < superView.frame.size.width - recognizer.view.frame.size.width)
+	{
+		newCenterX = (superView.frame.size.width - recognizer.view.frame.size.width) + (recognizer.view.frame.size.width / 2); // Don't move past the "zero" x point for the view (non-full width views will stop appropriately)
+	}
 
 	recognizer.view.center = CGPointMake(newCenterX, recognizer.view.center.y);
 	[recognizer setTranslation:CGPointMake(0, 0) inView:recognizer.view];
+	
 }
 
 - (void)handleSwipe:(UIPanGestureRecognizer *)recognizer
